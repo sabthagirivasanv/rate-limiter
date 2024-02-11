@@ -47,7 +47,7 @@ app.get("/business/:userId", async (req, res) => {
         }
         await client.hSet(userId, obj);
     }
-    const counter = await client.hGetAll(userId);
+    let counter = await client.hGetAll(userId);
 
 
 
@@ -62,6 +62,7 @@ app.get("/business/:userId", async (req, res) => {
         await client.hSet(userId, obj);
     }
 
+    counter = await client.hGetAll(userId);
     console.log("obj: "+JSON.stringify(counter));
     if(Number(counter.count) > 0){
         counter.count = Number(counter.count) - 1;
