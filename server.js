@@ -14,7 +14,8 @@ client.connect();
 
 const config = {
     count: 5,
-    sec: 60
+    sec: 60,
+    burstSec: 5
 }
 
 
@@ -28,7 +29,7 @@ app.post("/redis", (req, res) => {
     res.send("successfully added...")
 });
 
-app.get("/business/:userId", async (req, res) => {
+app.get("/tokenBucket/:userId", async (req, res) => {
     const userId = req.params.userId;
 
     console.log("existence");
@@ -69,6 +70,50 @@ app.get("/business/:userId", async (req, res) => {
         await client.hSet(userId, counter);
         res.status(200);
         res.send("success")
+    }else{
+        res.status(429);
+        res.send("Rate Limited");
+    }
+});
+
+app.get("/slidingWindowLog/:userId", async (req, res) => {
+    const userId = req.params.userId;
+
+    const key = "sliding_"+userId;
+
+    console.log(key);
+
+    const currTime = Date.now();
+
+    const startTime = currTime - (config.sec * 1000) - 1;
+
+    const removeCount = await client.zRemRangeByScore(key, "-inf", startTime);
+
+    console.log("remove count: "+ removeCount);
+
+    const listWithScores = await client.zRangeByScore(key, startTime, currTime, "withscores");
+
+    console.log("with scores:", listWithScores, " type : ", typeof listWithScores);
+
+    if(listWithScores.length < config.count){
+        let burstBlock = false;
+        if(listWithScores.length > 0){
+            const lastEntry = listWithScores[listWithScores.length - 1];
+            const nextRecTime = utility.addSecToTime(lastEntry, config.burstSec);
+            if(nextRecTime > currTime){
+                burstBlock = true;
+            }
+
+        }
+        if(burstBlock){
+            res.status(429);
+            res.send(`multiple request not allowed within ${config.burstSec} seconds.`)
+        }else{
+            console.log("ins", key, currTime, typeof currTime);
+            await client.zAdd(key, {score:currTime, value:String(currTime)});
+            res.status(200);
+            res.send("success")
+        }
     }else{
         res.status(429);
         res.send("Rate Limited");
