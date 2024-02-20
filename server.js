@@ -6,7 +6,9 @@ const utility = require("./utility")
 const app = express();
 app.use(express.json());
 const PORT = 8080;
-const client = createClient();
+const client = createClient({
+    url: 'redis://192.168.1.161:6399'
+});
 client.on('error', err => console.log('Redis Client Error', err));
 client.connect();
 
@@ -106,8 +108,7 @@ app.get("/slidingWindowLog/:userId", async (req, res) => {
 
         }
         if(burstBlock){
-            res.status(429);
-            res.send(`multiple request not allowed within ${config.burstSec} seconds.`)
+            res.status(429).send(`multiple request not allowed within ${config.burstSec} seconds.`)
         }else{
             console.log("ins", key, currTime, typeof currTime);
             await client.zAdd(key, {score:currTime, value:String(currTime)});
